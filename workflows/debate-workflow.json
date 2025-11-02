@@ -1,27 +1,27 @@
 {
-  "name": "Debate Partner Agent",
-  "description": "An AI debate partner that always takes the OPPOSITE stance to your argument. It provides 2-3 logical counterarguments with reasoning in a respectful tone. After 3 rounds of debate, or when you send 'summarize' or 'end', it will provide a clear summary of both sides. Perfect for critical thinking practice, exploring different perspectives, and strengthening your argumentation skills.",
-  "version": "1.0.0",
-  "author": "Abdul Lateef Sakariyau",
-  "language": "typescript",
-  "api": {
-    "base_url": "https://hngthreetask-production.up.railway.app",
-    "endpoints": [
-      {
-        "path": "/api/mastra/debate",
-        "method": "POST",
-        "description": "Starts or continues a debate session. The AI will automatically oppose your viewpoint with 2-3 counterarguments. Send 'end' or 'summarize' to receive a summary of both sides after 3+ rounds.",
-        "request": {
-          "message": {
-            "content": "string"
-          }
-        },
-        "response": {
-          "text": "string"
-        }
-      }
-    ]
+  "active": true,
+  "category": "education",
+  "description": "An AI debate partner that challenges your views constructively",
+  "id": "debate_partner_agent",
+  "long_description": "\n      You are a debate partner agent. Your job is to challenge the user's opinions constructively.\n\n      Rules:\n      - Always take the OPPOSITE stance to the user's statement\n      - Provide 2-3 counterarguments with reasoning\n      - Keep tone respectful and logical\n          - Use bullet points for arguments\n      - Be engaging and concise\n\n      When responding:\n      - Present counterarguments in numbered format\n      - Support each point with clear reasoning\n      - Ask follow-up questions to deepen the debate\n      - Track the conversation rounds\n      - Provide balanced summaries that cover both perspectives\n\n      Example format:\n      User: 'I think remote work is better than office work'\n      You: 'Interesting view! But I disagree because:\n      1. In-person collaboration builds trust\n      2. Office environments foster clearer communication\n      3. Physical workspaces separate work and personal life'\n",
+  "name": "debate_partner_agent",
+  "nodes": [
+    {
+      "id": "debate_agent_node",
+      "name": "debate partner agent",
+      "parameters": {},
+      "position": [
+        816,
+        -112
+      ],
+      "type": "a2a/mastra-a2a-node",
+      "typeVersion": 1,
+      "url": "https://hngthreetask-production.up.railway.app/a2a/agent/debateAgent"
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
   },
-  "tags": ["debate", "education", "AI", "chatbot", "critical-thinking", "argumentation"],
-  "visibility": "public"
+  "short_description": "AI agent that debates the opposite viewpoint."
 }

@@ -125,6 +125,110 @@ What are your thoughts on [follow-up question]?"`;
   }
 });
 
+// Add this new endpoint specifically for Telex A2A protocol
+app.post("/a2a/agent/debateAgent", async (req, res) => {
+  try {
+    // Telex A2A format expects this structure
+    const { message, conversationId, metadata } = req.body;
+    
+    // Extract user message from A2A format
+    const userText = message?.content || message || "";
+    const topic = metadata?.topic || "general";
+    const convId = conversationId || uuidv4();
+    
+    // Get or create conversation history
+    if (!conversations.has(convId)) {
+      conversations.set(convId, []);
+    }
+    const history = conversations.get(convId)!;
+    
+    // Check for summarize trigger
+    const shouldSummarize = /\b(summarize|end|summary)\b/i.test(userText);
+    const roundCount = Math.floor(history.filter(m => m.role === "user").length);
+    
+    // Add user message to history
+    history.push({ role: "user", content: userText });
+    
+    // Build prompt with context
+    let prompt = `Topic: "${topic}"\n\n`;
+    
+    if (history.length > 1) {
+      prompt += "Conversation so far:\n";
+      history.slice(0, -1).forEach((msg) => {
+        const label = msg.role === "user" ? "User" : "You (AI)";
+        prompt += `${label}: ${msg.content}\n\n`;
+      });
+    }
+    
+    prompt += `Current user message: ${userText}\n\n`;
+    
+    if (shouldSummarize || roundCount >= 3) {
+      prompt += `The user has requested a summary or you've completed 3+ rounds. Please provide a clear, balanced summary of:
+1. The user's main arguments and positions
+2. Your counterarguments and positions
+3. Key points of disagreement
+4. Any common ground found
+
+Format the summary with clear sections and bullet points.`;
+    } else {
+      prompt += `You are a debate partner agent. Your job is to challenge the user's opinions constructively.
+
+Rules:
+- Always take the OPPOSITE stance to the user's statement.
+- Provide 2–3 counterarguments with reasoning.
+- Keep tone respectful and logical.
+- Use bullet points for arguments.
+- Be engaging and concise.`;
+    }
+    
+    // Generate response
+    const result: any = await debateAgent.generate(prompt);
+    
+    // Extract reply
+    let replyText: string | null = null;
+    if (typeof result === "string") {
+      replyText = result;
+    } else if (result?.text) {
+      replyText = result.text;
+    } else if (result?.content) {
+      replyText = result.content;
+    } else if (Array.isArray(result?.output) && result.output.length) {
+      const out0 = result.output[0];
+      if (out0?.content && Array.isArray(out0.content) && out0.content.length) {
+        replyText = out0.content[0]?.text ?? JSON.stringify(out0.content[0]);
+      }
+    }
+    
+    // Add AI response to history
+    history.push({ role: "assistant", content: replyText ?? "No reply generated" });
+    
+    // Clear conversation if summarized
+    if (shouldSummarize || roundCount >= 3) {
+      conversations.delete(convId);
+    }
+    
+    // Return in A2A format (Telex expects this structure)
+    return res.json({
+      message: {
+        content: replyText ?? "No reply generated",
+        role: "assistant"
+      },
+      conversationId: convId,
+      metadata: {
+        round: roundCount + 1,
+        isSummary: shouldSummarize || roundCount >= 3
+      }
+    });
+    
+  } catch (err: any) {
+    console.error("Debate Agent A2A Error:", err);
+    return res.status(500).json({ 
+      error: "Agent error", 
+      details: err?.message ?? String(err) 
+    });
+  }
+});
+
 // endpoint to clear a conversation
 app.delete("/api/mastra/debate/:conversationId", (req, res) => {
   const { conversationId } = req.params;
