@@ -1,26 +1,23 @@
 {
   "name": "Debate Partner Agent",
-  "description": "An AI debate partner that argues the opposite viewpoint, engages logically, and provides a summary after 3 rounds. when the user ends the debate.",
+  "description": "An AI debate partner that argues the opposite viewpoint, engages logically, and provides a summary after 3 rounds when the user ends the debate when the send a request with the word 'end' or 'summarize'.",
   "version": "1.0.0",
   "author": "Abdul Lateef Sakariyau",
   "language": "typescript",
   "api": {
-    "base_url": "https://your-deployment-url.com",
+    "base_url": "https://hngthreetask-production.up.railway.app",
     "endpoints": [
       {
-        "path": "/api/debate",
+        "path": "/api/mastra/debate",
         "method": "POST",
-        "description": "Starts or continues a debate session",
+        "description": "Starts or continues a debate session with the AI partner",
         "request": {
-          "conversationId": "string (optional)",
-          "topic": "string",
-          "userMessage": "string"
+          "message": {
+            "content": "string"
+          }
         },
         "response": {
-          "conversationId": "string",
-          "reply": "string",
-          "turn": "number",
-          "summary": "string (optional)"
+          "text": "string"
         }
       }
     ]
