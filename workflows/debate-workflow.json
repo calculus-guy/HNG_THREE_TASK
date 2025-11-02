@@ -1,6 +1,6 @@
 {
   "name": "Debate Partner Agent",
-  "description": "An AI debate partner that argues the opposite viewpoint, engages logically, and provides a summary after 3 rounds when the user ends the debate when the send a request with the word 'end' or 'summarize'.",
+  "description": "An AI debate partner that always takes the OPPOSITE stance to your argument. It provides 2-3 logical counterarguments with reasoning in a respectful tone. After 3 rounds of debate, or when you send 'summarize' or 'end', it will provide a clear summary of both sides. Perfect for critical thinking practice, exploring different perspectives, and strengthening your argumentation skills.",
   "version": "1.0.0",
   "author": "Abdul Lateef Sakariyau",
   "language": "typescript",
@@ -10,7 +10,7 @@
       {
         "path": "/api/mastra/debate",
         "method": "POST",
-        "description": "Starts or continues a debate session with the AI partner",
+        "description": "Starts or continues a debate session. The AI will automatically oppose your viewpoint with 2-3 counterarguments. Send 'end' or 'summarize' to receive a summary of both sides after 3+ rounds.",
         "request": {
           "message": {
             "content": "string"
@@ -22,6 +22,6 @@
       }
     ]
   },
-  "tags": ["debate", "education", "AI", "chatbot"],
+  "tags": ["debate", "education", "AI", "chatbot", "critical-thinking", "argumentation"],
   "visibility": "public"
 }

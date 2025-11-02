@@ -11,6 +11,8 @@ import { v4 as uuidv4 } from "uuid";
 const app = express();
 app.use(express.json());
 
+const conversations = new Map<string, Array<{ role: string; content: string }>>();
+
 const mastra = new Mastra({
   agents: { debateAgent },
 });
@@ -20,29 +22,64 @@ app.post("/api/mastra/debate", async (req, res) => {
   try {
     const { conversationId, topic, userMessage, message } = req.body;
     const userText = (userMessage ?? message?.content ?? message ?? req.body?.input ?? "").toString();
+    const convId = conversationId ?? uuidv4();
+    
+    // Get or create conversation history
+    if (!conversations.has(convId)) {
+      conversations.set(convId, []);
+    }
+    const history = conversations.get(convId)!;
+    
+    // Check if user wants to summarize
+    const shouldSummarize = /\b(summarize|end|summary)\b/i.test(userText);
+    const roundCount = Math.floor(history.filter(m => m.role === "user").length);
+    
+    // Add user message to history
+    history.push({ role: "user", content: userText });
+    
+    // Build the prompt with full conversation context
+    let prompt = `Topic: "${topic ?? "general"}"\n\n`;
+    
+    // Include conversation history
+    if (history.length > 1) {
+      prompt += "Conversation so far:\n";
+      history.slice(0, -1).forEach((msg, idx) => {
+        const label = msg.role === "user" ? "User" : "You (AI)";
+        prompt += `${label}: ${msg.content}\n\n`;
+      });
+    }
+    
+    prompt += `Current user message: ${userText}\n\n`;
+    
+    // Add instructions based on context
+    if (shouldSummarize || roundCount >= 3) {
+      prompt += `The user has requested a summary or you've completed 3+ rounds. Please provide a clear, balanced summary of:
+1. The user's main arguments and positions
+2. Your counterarguments and positions
+3. Key points of disagreement
+4. Any common ground found
 
-    const prompt = `Topic: "${topic ?? "general"}"
-
-User's argument: ${userText}
-
-You are a debate partner agent. Your job is to challenge the user's opinions constructively.
+Format the summary with clear sections and bullet points.`;
+    } else {
+      prompt += `You are a debate partner agent. Your job is to challenge the user's opinions constructively.
 
 Rules:
 - Always take the OPPOSITE stance to the user's statement.
 - Provide 2–3 counterarguments with reasoning.
 - Keep tone respectful and logical.
-- After 3 rounds or when the user says "summarize" or "end", summarize both sides clearly.
 - Use bullet points for arguments.
 - Be engaging and concise.
 
-Example:
-User: "I think remote work is better than office work"
-You: "Interesting view! But I disagree because:
-1. In-person collaboration builds trust
-2. Office environments foster clearer communication
-3. Physical workspaces separate work and personal life"`;
+Example format:
+"Interesting view! But I disagree because:
+1. [First counterargument with reasoning]
+2. [Second counterargument with reasoning]
+3. [Third counterargument with reasoning]
+
+What are your thoughts on [follow-up question]?"`;
+    }
     
-    // Call Mastra agent with a string prompt
+    // Call Mastra agent
     const result: any = await debateAgent.generate(prompt);
     
     // Extract the response text
@@ -64,11 +101,20 @@ You: "Interesting view! But I disagree because:
       replyText = JSON.stringify(result).slice(0, 200);
     }
     
+    // Add AI response to history
+    history.push({ role: "assistant", content: replyText ?? "No reply generated" });
+    
+    // Clear conversation if summarized
+    const isSummary = shouldSummarize || roundCount >= 3;
+    if (isSummary) {
+      conversations.delete(convId); // Clear history after summary
+    }
+    
     const responsePayload = {
-      conversationId: conversationId ?? uuidv4(),
+      conversationId: convId,
       reply: replyText ?? "No reply generated",
-      turn: 1,
-      summary: null,
+      turn: roundCount + 1,
+      summary: isSummary ? replyText : null,
       raw: result,
     };
     
@@ -77,6 +123,13 @@ You: "Interesting view! But I disagree because:
     console.error("Debate Agent Error:", err);
     return res.status(500).json({ error: "Agent error", details: err?.message ?? String(err) });
   }
+});
+
+// endpoint to clear a conversation
+app.delete("/api/mastra/debate/:conversationId", (req, res) => {
+  const { conversationId } = req.params;
+  conversations.delete(conversationId);
+  res.json({ message: "Conversation cleared" });
 });
 
 
