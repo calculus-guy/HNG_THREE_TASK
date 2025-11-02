@@ -1,0 +1,30 @@
+{
+  "name": "Debate Partner Agent",
+  "description": "An AI debate partner that argues the opposite viewpoint, engages logically, and provides a summary after 3 rounds. when the user ends the debate.",
+  "version": "1.0.0",
+  "author": "Abdul Lateef Sakariyau",
+  "language": "typescript",
+  "api": {
+    "base_url": "https://your-deployment-url.com",
+    "endpoints": [
+      {
+        "path": "/api/debate",
+        "method": "POST",
+        "description": "Starts or continues a debate session",
+        "request": {
+          "conversationId": "string (optional)",
+          "topic": "string",
+          "userMessage": "string"
+        },
+        "response": {
+          "conversationId": "string",
+          "reply": "string",
+          "turn": "number",
+          "summary": "string (optional)"
+        }
+      }
+    ]
+  },
+  "tags": ["debate", "education", "AI", "chatbot"],
+  "visibility": "public"
+}
