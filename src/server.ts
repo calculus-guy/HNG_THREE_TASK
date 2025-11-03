@@ -135,11 +135,14 @@ app.post("/a2a/agent/debateAgent", async (req, res) => {
     const userText = message?.content || "";
     const convId = conversationId || uuidv4();
     
-    if (!userText) {
-      return res.status(400).json({
-        error: "No message content provided"
-      });
+if (!userText) {
+  return res.status(200).json({ 
+    message: {
+      role: "assistant",
+      content: "I'm ready to debate! Share your opinion on any topic."
     }
+  });
+}
     
     // Get or create conversation history
     if (!conversations.has(convId)) {
