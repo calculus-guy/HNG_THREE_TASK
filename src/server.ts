@@ -128,13 +128,18 @@ What are your thoughts on [follow-up question]?"`;
 // Add this new endpoint specifically for Telex A2A protocol
 app.post("/a2a/agent/debateAgent", async (req, res) => {
   try {
-    // Telex A2A format expects this structure
-    const { message, conversationId, metadata } = req.body;
+    console.log("=== TELEX A2A REQUEST ===");
+    console.log(JSON.stringify(req.body, null, 2));
     
-    // Extract user message from A2A format
-    const userText = message?.content || message || "";
-    const topic = metadata?.topic || "general";
+    const { message, conversationId, metadata } = req.body;
+    const userText = message?.content || "";
     const convId = conversationId || uuidv4();
+    
+    if (!userText) {
+      return res.status(400).json({
+        error: "No message content provided"
+      });
+    }
     
     // Get or create conversation history
     if (!conversations.has(convId)) {
@@ -142,50 +147,47 @@ app.post("/a2a/agent/debateAgent", async (req, res) => {
     }
     const history = conversations.get(convId)!;
     
-    // Check for summarize trigger
+    // Check if user wants to summarize
     const shouldSummarize = /\b(summarize|end|summary)\b/i.test(userText);
-    const roundCount = Math.floor(history.filter(m => m.role === "user").length);
+    const roundCount = history.filter(m => m.role === "user").length;
     
     // Add user message to history
     history.push({ role: "user", content: userText });
     
-    // Build prompt with context
-    let prompt = `Topic: "${topic}"\n\n`;
+    // Build the prompt
+    let prompt = "";
     
     if (history.length > 1) {
       prompt += "Conversation so far:\n";
       history.slice(0, -1).forEach((msg) => {
-        const label = msg.role === "user" ? "User" : "You (AI)";
+        const label = msg.role === "user" ? "User" : "You";
         prompt += `${label}: ${msg.content}\n\n`;
       });
     }
     
     prompt += `Current user message: ${userText}\n\n`;
     
-    if (shouldSummarize || roundCount >= 3) {
-      prompt += `The user has requested a summary or you've completed 3+ rounds. Please provide a clear, balanced summary of:
-1. The user's main arguments and positions
-2. Your counterarguments and positions
-3. Key points of disagreement
-4. Any common ground found
-
-Format the summary with clear sections and bullet points.`;
+    if (shouldSummarize && roundCount >= 1) {
+      prompt += `Provide a clear summary of the debate with:
+1. User's main arguments
+2. Your counterarguments
+3. Key disagreements
+4. Any common ground`;
     } else {
-      prompt += `You are a debate partner agent. Your job is to challenge the user's opinions constructively.
+      prompt += `You are a debate partner. Take the OPPOSITE stance.
 
 Rules:
-- Always take the OPPOSITE stance to the user's statement.
-- Provide 2–3 counterarguments with reasoning.
-- Keep tone respectful and logical.
-- Use bullet points for arguments.
-- Be engaging and concise.`;
+- Disagree respectfully
+- Provide 2-3 numbered counterarguments with reasoning
+- Be logical and engaging
+- End with a follow-up question`;
     }
     
     // Generate response
     const result: any = await debateAgent.generate(prompt);
     
     // Extract reply
-    let replyText: string | null = null;
+    let replyText = "";
     if (typeof result === "string") {
       replyText = result;
     } else if (result?.text) {
@@ -195,36 +197,38 @@ Rules:
     } else if (Array.isArray(result?.output) && result.output.length) {
       const out0 = result.output[0];
       if (out0?.content && Array.isArray(out0.content) && out0.content.length) {
-        replyText = out0.content[0]?.text ?? JSON.stringify(out0.content[0]);
+        replyText = out0.content[0]?.text || "";
       }
     }
     
     // Add AI response to history
-    history.push({ role: "assistant", content: replyText ?? "No reply generated" });
+    history.push({ role: "assistant", content: replyText || "No reply generated" });
     
     // Clear conversation if summarized
-    if (shouldSummarize || roundCount >= 3) {
+    if (shouldSummarize && roundCount >= 1) {
       conversations.delete(convId);
     }
     
-    // Return in A2A format (Telex expects this structure)
-    return res.json({
+    // CRITICAL: Return ONLY message object (strict A2A format)
+    const response = {
       message: {
-        content: replyText ?? "No reply generated",
-        role: "assistant"
-      },
-      conversationId: convId,
-      metadata: {
-        round: roundCount + 1,
-        isSummary: shouldSummarize || roundCount >= 3
+        role: "assistant",
+        content: replyText || "I'm ready to debate! Share your opinion."
       }
-    });
+      // DO NOT include conversationId or metadata here
+    };
+    
+    console.log("=== A2A RESPONSE ===");
+    console.log(JSON.stringify(response, null, 2));
+    
+    // CRITICAL: Return status 200
+    return res.status(200).json(response);
     
   } catch (err: any) {
-    console.error("Debate Agent A2A Error:", err);
+    console.error("A2A Endpoint Error:", err);
     return res.status(500).json({ 
-      error: "Agent error", 
-      details: err?.message ?? String(err) 
+      error: "Internal server error",
+      message: err?.message 
     });
   }
 });
