@@ -135,14 +135,14 @@ app.post("/a2a/agent/debateAgent", async (req, res) => {
     const userText = message?.content || "";
     const convId = conversationId || uuidv4();
     
-if (!userText) {
-  return res.status(200).json({ 
-    message: {
-      role: "assistant",
-      content: "I'm ready to debate! Share your opinion on any topic."
+    if (!userText) {
+      return res.status(200).json({ 
+        message: {
+          role: "assistant",
+          content: "I'm ready to debate! Share your opinion on any topic."
+        }
+      });
     }
-  });
-}
     
     // Get or create conversation history
     if (!conversations.has(convId)) {
@@ -161,33 +161,56 @@ if (!userText) {
     let prompt = "";
     
     if (history.length > 1) {
-      prompt += "Conversation so far:\n";
+      prompt += "Previous conversation:\n";
       history.slice(0, -1).forEach((msg) => {
         const label = msg.role === "user" ? "User" : "You";
         prompt += `${label}: ${msg.content}\n\n`;
       });
+      prompt += "---\n\n";
     }
     
-    prompt += `Current user message: ${userText}\n\n`;
+    prompt += `User's statement: "${userText}"\n\n`;
     
     if (shouldSummarize && roundCount >= 1) {
-      prompt += `Provide a clear summary of the debate with:
+      prompt += `Provide a COMPLETE summary of the debate with all these sections:
 1. User's main arguments
-2. Your counterarguments
+2. Your counterarguments  
 3. Key disagreements
-4. Any common ground`;
-    } else {
-      prompt += `You are a debate partner. Take the OPPOSITE stance.
+4. Any common ground
 
-Rules:
-- Disagree respectfully
-- Provide 2-3 numbered counterarguments with reasoning
-- Be logical and engaging
-- End with a follow-up question`;
+Write the full summary now:`;
+    } else {
+      prompt += `You are a debate partner. Take the OPPOSITE stance to what the user said.
+
+You MUST write a COMPLETE response with ALL of these parts:
+
+1. Start with: "I understand your point, but I disagree because:"
+2. Then write 3 numbered counterarguments (each 2-3 sentences long):
+   - Counterargument 1 with full explanation
+   - Counterargument 2 with full explanation  
+   - Counterargument 3 with full explanation
+3. End with a follow-up question
+
+Example format:
+"I understand your point, but I disagree because:
+
+1. [First full counterargument with reasoning - 2-3 sentences]
+2. [Second full counterargument with reasoning - 2-3 sentences]
+3. [Third full counterargument with reasoning - 2-3 sentences]
+
+What are your thoughts on [relevant question]?"
+
+NOW write your COMPLETE response following this exact format:`;
     }
+    
+    console.log("=== PROMPT ===");
+    console.log(prompt);
     
     // Generate response
     const result: any = await debateAgent.generate(prompt);
+    
+    console.log("=== RAW RESULT ===");
+    console.log(JSON.stringify(result, null, 2));
     
     // Extract reply
     let replyText = "";
@@ -204,6 +227,9 @@ Rules:
       }
     }
     
+    console.log("=== EXTRACTED REPLY ===");
+    console.log(replyText);
+    
     // Add AI response to history
     history.push({ role: "assistant", content: replyText || "No reply generated" });
     
@@ -212,19 +238,17 @@ Rules:
       conversations.delete(convId);
     }
     
-    // CRITICAL: Return ONLY message object (strict A2A format)
+    // Return in A2A format
     const response = {
       message: {
         role: "assistant",
         content: replyText || "I'm ready to debate! Share your opinion."
       }
-      // DO NOT include conversationId or metadata here
     };
     
     console.log("=== A2A RESPONSE ===");
     console.log(JSON.stringify(response, null, 2));
     
-    // CRITICAL: Return status 200
     return res.status(200).json(response);
     
   } catch (err: any) {
